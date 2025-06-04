@@ -27,6 +27,7 @@
       max-width: 600px; 
       border: 2px solid #a3bffa; 
       text-align: center; 
+      position: relative; 
     }
     h2 { 
       font-weight: 700; 
@@ -34,11 +35,6 @@
       text-transform: uppercase; 
       letter-spacing: 2px; 
       margin-bottom: 20px; 
-    }
-    h3 { 
-      font-weight: 700; 
-      color: #d4a4eb; 
-      margin-top: 20px; 
     }
     #wheelCanvas { 
       border: 3px solid #a3bffa; 
@@ -61,29 +57,50 @@
     button:hover { 
       background: #c48de3; 
     }
-    #quoteDisplay { 
-      background: #f0f2f0; 
-      padding: 15px; 
+    #quotePopup { 
+      display: none; 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: rgba(255, 255, 255, 0.95); 
+      padding: 20px; 
       border-radius: 10px; 
-      border: 1px solid #a3bffa; 
-      margin-top: 20px; 
-      font-weight: 400; 
-      color: #333333; 
+      border: 2px solid #a3bffa; 
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); 
+      z-index: 1000; 
+      width: 80%; 
+      max-width: 400px; 
+      text-align: center; 
     }
-    #quoteDisplay p { 
+    #quotePopup p { 
       margin: 5px 0; 
       font-style: italic; 
+      font-weight: 400; 
     }
-    #quoteDisplay .author { 
+    #quotePopup .author { 
       font-weight: 700; 
       color: #a9dfbf; 
     }
-    .share { 
+    #quotePopup .share { 
       font-weight: 400; 
       color: #666666; 
       font-style: italic; 
       margin-top: 10px; 
       font-size: 0.9em; 
+    }
+    #closePopup { 
+      background: #d4a4eb; 
+      color: #ffffff; 
+      padding: 8px 15px; 
+      border: none; 
+      border-radius: 5px; 
+      cursor: pointer; 
+      font-weight: 700; 
+      margin-top: 10px; 
+    }
+    #closePopup:hover { 
+      background: #c48de3; 
     }
   </style>
 </head>
@@ -95,11 +112,12 @@
     <canvas id="wheelCanvas" width="400" height="400"></canvas>
     <button onclick="spinWheel()">Spin the Wheel!</button>
 
-    <h3>Your Quote of the Day</h3>
-    <div id="quoteDisplay">
-      <p>Spin the wheel to reveal your motivational quote...</p>
+    <div id="quotePopup">
+      <p id="quoteText">Your quote will appear here...</p>
+      <p id="quoteAuthor" class="author"></p>
+      <p id="shareLink" class="share">Share your quote! #MotivationalRoulette #Inspiration2025</p>
+      <button id="closePopup" onclick="closePopup()">Close</button>
     </div>
-    <p class="share">Share your quote! #MotivationalRoulette #Inspiration2025</p>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
@@ -108,7 +126,8 @@
     const ctx = canvas.getContext('2d');
     const segments = 12; // 12 numbers
     const colors = ['#a3bffa', '#d4a4eb', '#a9dfbf', '#f0f2f0']; // Grok-inspired colors
-    let currentAngle = 0;
+    let wheelAngle = 0;
+    let arrowAngle = 0;
     let spinning = false;
 
     // Motivational quotes tied to numbers 1-12
@@ -133,6 +152,12 @@
       const radius = canvas.width / 2 - 10;
       const anglePerSegment = (2 * Math.PI) / segments;
 
+      // Draw the wheel
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate((wheelAngle * Math.PI) / 180);
+      ctx.translate(-centerX, -centerY);
+
       for (let i = 0; i < segments; i++) {
         const startAngle = i * anglePerSegment;
         const endAngle = (i + 1) * anglePerSegment;
@@ -156,8 +181,13 @@
         ctx.fillText(i + 1, radius * 0.7, 0);
         ctx.restore();
       }
+      ctx.restore();
 
-      // Draw pointer
+      // Draw the arrow independently
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate((arrowAngle * Math.PI) / 180);
+      ctx.translate(-centerX, -centerY);
       ctx.beginPath();
       ctx.moveTo(centerX + radius - 20, centerY - 10);
       ctx.lineTo(centerX + radius + 10, centerY);
@@ -166,33 +196,47 @@
       ctx.fillStyle = '#d4a4eb';
       ctx.fill();
       ctx.stroke();
+      ctx.restore();
     }
 
     function spinWheel() {
       if (spinning) return;
       spinning = true;
 
-      const spins = Math.floor(Math.random() * 5 + 5); // Random spins (5-10)
-      const extraDegrees = Math.random() * 360; // Random extra angle
-      const totalDegrees = spins * 360 + extraDegrees;
+      // Random spins for wheel and arrow
+      const wheelSpins = Math.floor(Math.random() * 5 + 5); // 5-10 spins for wheel
+      const arrowSpins = Math.floor(Math.random() * 4 + 3); // 3-7 spins for arrow
+      const wheelExtraDegrees = Math.random() * 360;
+      const arrowExtraDegrees = Math.random() * 360;
+      const wheelTotalDegrees = wheelSpins * 360 + wheelExtraDegrees;
+      const arrowTotalDegrees = arrowSpins * 360 + arrowExtraDegrees;
 
-      gsap.to({ angle: currentAngle }, {
-        angle: currentAngle + totalDegrees,
+      // Spin wheel and arrow simultaneously
+      const wheelTimeline = gsap.timeline();
+      wheelTimeline.to({ angle: wheelAngle }, {
+        angle: wheelAngle + wheelTotalDegrees,
         duration: 5,
         ease: 'power3.out',
         onUpdate: function() {
-          currentAngle = this.targets()[0].angle;
+          wheelAngle = this.targets()[0].angle;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.save();
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate((currentAngle * Math.PI) / 180);
-          ctx.translate(-canvas.width / 2, -canvas.height / 2);
           drawWheel();
-          ctx.restore();
+        }
+      });
+
+      const arrowTimeline = gsap.timeline();
+      arrowTimeline.to({ angle: arrowAngle }, {
+        angle: arrowAngle + arrowTotalDegrees,
+        duration: 7.5, // Longer duration for arrow to stagger stop
+        ease: 'power3.out',
+        onUpdate: function() {
+          arrowAngle = this.targets()[0].angle;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawWheel();
         },
         onComplete: function() {
           spinning = false;
-          revealQuote(totalDegrees);
+          revealQuote(arrowTotalDegrees);
         }
       });
     }
@@ -210,14 +254,19 @@
       const quoteIndex = (adjustedNumber + dayOfMonth) % segments || segments - 1; // Combine number and day
 
       const quote = quotes[quoteIndex];
-      document.getElementById('quoteDisplay').innerHTML = `
-        <p>"${quote.quote}"</p>
-        <p class="author">- ${quote.author}</p>
-      `;
+      document.getElementById('quoteText').textContent = `"${quote.quote}"`;
+      document.getElementById('quoteAuthor').textContent = `- ${quote.author}`;
 
       // Shareable link
       const shareText = encodeURIComponent(`My motivational quote of the day: "${quote.quote}" - ${quote.author} #MotivationalRoulette #Inspiration2025`);
-      document.querySelector('.share').innerHTML = `Share your quote! <a href="https://twitter.com/intent/tweet?text=${shareText}" target="_blank">Tweet it!</a>`;
+      document.getElementById('shareLink').innerHTML = `Share your quote! <a href="https://twitter.com/intent/tweet?text=${shareText}" target="_blank">Tweet it!</a>`;
+
+      // Show the pop-up
+      document.getElementById('quotePopup').style.display = 'block';
+    }
+
+    function closePopup() {
+      document.getElementById('quotePopup').style.display = 'none';
     }
 
     // Initial draw
